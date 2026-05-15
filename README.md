@@ -1,6 +1,6 @@
 # PicoCode
 
-`PicoCode` is a small but real local coding agent workbench for the terminal.
+`PicoCode` is a small, local-first coding agent workbench for the terminal.
 
 It is inspired by Pi, Codex, Claude Code, and OpenCode, but keeps the implementation focused on a local-first Rust TUI.
 
@@ -48,7 +48,7 @@ It has only been tested on macOS so far.
 The intended public install entrypoint is a GitHub-hosted install script like this:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/picocode/refs/heads/main/install | bash
+curl -fsSL https://raw.githubusercontent.com/shijizhi/picocode/refs/heads/main/install | bash
 ```
 
 ### From GitHub Releases

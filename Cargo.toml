@@ -2,11 +2,11 @@
 name = "picocode-cli"
 version = "0.1.0"
 edition = "2021"
-description = "A small but real local coding agent workbench."
+description = "A small, local-first coding agent workbench for the terminal."
 license = "MIT"
 readme = "README.md"
 documentation = "https://docs.rs/picocode-cli"
-repository = ""
+repository = "https://github.com/shijizhi/picocode"
 keywords = ["tui", "ai", "coding-agent", "cli", "ratatui"]
 categories = ["command-line-interface", "development-tools"]
 exclude = [".picocode/*", "design/*", "RELEASE.md", ".DS_Store"]

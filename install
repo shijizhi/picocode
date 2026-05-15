@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="${PICOCODE_REPO:-jizhishi/picocode}"
+repo="${PICOCODE_REPO:-shijizhi/picocode}"
 version="${PICOCODE_VERSION:-latest}"
 install_dir="${PICOCODE_INSTALL_DIR:-}"
 asset_name=""
