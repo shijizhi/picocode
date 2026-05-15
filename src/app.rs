@@ -2,6 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::Instant;
 
 use crate::{
+    config_editor::{ConfigEditorAction, ConfigEditorState, ConfigField},
     event::{self, Event, EventMsg},
     model_picker::{ModelPickerAction, ModelPickerState},
     session::SessionSummary,
@@ -101,8 +102,28 @@ impl AppState {
         self.runtime_status = RuntimeStatus::with_detail("model", "selector");
     }
 
+    pub fn enter_config_editor(
+        &mut self,
+        options: Vec<crate::config::ModelOption>,
+        current_provider: &str,
+        current_model: &str,
+        focus_field: Option<ConfigField>,
+    ) {
+        self.mode = AppMode::ConfigEditor(ConfigEditorState::new(
+            options,
+            current_provider,
+            current_model,
+            focus_field,
+        ));
+        self.runtime_status = RuntimeStatus::with_detail("config", "editor");
+    }
+
     pub fn is_model_picker_active(&self) -> bool {
         matches!(self.mode, AppMode::ModelPicker(_))
+    }
+
+    pub fn is_config_editor_active(&self) -> bool {
+        matches!(self.mode, AppMode::ConfigEditor(_))
     }
 
     pub fn start_ai_request(&mut self) {
@@ -172,6 +193,7 @@ impl AppState {
                 let label = match command {
                     LocalCommand::Resume => "/resume",
                     LocalCommand::New => "/new",
+                    LocalCommand::Config => "/config",
                     LocalCommand::Continue => "/continue",
                     LocalCommand::Image { .. } => return,
                     LocalCommand::ImageClipboard => return,
@@ -223,7 +245,10 @@ impl AppState {
                 }
                 Some(action)
             }
-            AppMode::Chat | AppMode::ModelPicker(_) | AppMode::SessionTree(_) => None,
+            AppMode::Chat
+            | AppMode::ModelPicker(_)
+            | AppMode::SessionTree(_)
+            | AppMode::ConfigEditor(_) => None,
         }
     }
 
@@ -243,7 +268,43 @@ impl AppState {
                 }
                 Some(action)
             }
-            AppMode::Chat | AppMode::SessionPicker(_) | AppMode::SessionTree(_) => None,
+            AppMode::Chat
+            | AppMode::SessionPicker(_)
+            | AppMode::SessionTree(_)
+            | AppMode::ConfigEditor(_) => None,
+        }
+    }
+
+    pub fn handle_config_key(&mut self, key: KeyEvent) -> Option<ConfigEditorAction> {
+        match &mut self.mode {
+            AppMode::ConfigEditor(state) => {
+                let action = state.handle_key(key);
+                match &action {
+                    ConfigEditorAction::Saved(_) => {
+                        self.runtime_status = RuntimeStatus::with_detail("config", "saved");
+                    }
+                    ConfigEditorAction::Cancelled => {
+                        self.mode = AppMode::Chat;
+                        self.runtime_status = RuntimeStatus::idle();
+                    }
+                    ConfigEditorAction::Continue => {}
+                }
+                Some(action)
+            }
+            AppMode::Chat
+            | AppMode::SessionPicker(_)
+            | AppMode::SessionTree(_)
+            | AppMode::ModelPicker(_) => None,
+        }
+    }
+
+    pub fn handle_config_paste(&mut self, text: String) -> Option<ConfigEditorAction> {
+        match &mut self.mode {
+            AppMode::ConfigEditor(state) => Some(state.handle_paste(&text)),
+            AppMode::Chat
+            | AppMode::SessionPicker(_)
+            | AppMode::SessionTree(_)
+            | AppMode::ModelPicker(_) => None,
         }
     }
 
@@ -267,7 +328,10 @@ impl AppState {
                 }
                 Some(action)
             }
-            AppMode::Chat | AppMode::SessionPicker(_) | AppMode::ModelPicker(_) => None,
+            AppMode::Chat
+            | AppMode::SessionPicker(_)
+            | AppMode::ModelPicker(_)
+            | AppMode::ConfigEditor(_) => None,
         }
     }
 
@@ -358,6 +422,7 @@ pub enum AppMode {
     SessionPicker(SessionPickerState),
     SessionTree(SessionTreeState),
     ModelPicker(ModelPickerState),
+    ConfigEditor(ConfigEditorState),
 }
 
 impl Default for AppMode {
@@ -373,6 +438,9 @@ fn parse_local_command(input: &str) -> Option<LocalCommand> {
     }
     if trimmed == "/new" {
         return Some(LocalCommand::New);
+    }
+    if trimmed == "/config" {
+        return Some(LocalCommand::Config);
     }
     if trimmed == "/continue" || trimmed == "-c" {
         return Some(LocalCommand::Continue);

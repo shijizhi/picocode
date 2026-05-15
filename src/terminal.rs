@@ -19,6 +19,7 @@ use crate::{
     app::{AiProfile, AppMode, AppState},
     capability::{CapabilityIndex, CapabilityKind, CapabilityPreferences},
     config::PicocodeConfig,
+    config_editor::{ConfigEditorAction, ConfigField},
     event::{self as picocode_event, EventMsg},
     image::{attach_image, attach_image_from_clipboard, clipboard_text},
     instruction::load_instructions,
@@ -105,28 +106,32 @@ pub fn run(session_id: Option<&str>, project_root: impl Into<PathBuf>) -> io::Re
             app.push_error_message(warning);
         }
     }
-    let config = match PicocodeConfig::load() {
+    let mut config = match PicocodeConfig::load() {
         Ok(config) => Some(config),
         Err(error) => {
             app.push_error_message(error.to_string());
             None
         }
     };
-    let mut ai = config.as_ref().and_then(|config| {
+    let mut ai = None;
+    if let Some(config_ref) = config.as_ref() {
         let session_profile = session_summary.as_ref().and_then(|summary| {
             summary
                 .ai_provider
                 .as_ref()
                 .zip(summary.ai_model.as_ref())
-                .and_then(|(provider, model)| config.find_model(provider, model))
+                .and_then(|(provider, model)| config_ref.find_model(provider, model))
                 .map(|profile| AiProfile::new(profile.provider.clone(), profile.model.clone()))
         });
         let effective_profile = session_profile.unwrap_or_else(|| {
-            AiProfile::new(config.model.provider.clone(), config.model.model.clone())
+            AiProfile::new(
+                config_ref.model.provider.clone(),
+                config_ref.model.model.clone(),
+            )
         });
         app.set_ai_profile(Some(effective_profile.clone()));
         let effective_config =
-            config.with_model_selection(&effective_profile.provider, &effective_profile.model);
+            config_ref.with_model_selection(&effective_profile.provider, &effective_profile.model);
 
         match AiClient::from_config(&effective_config) {
             Ok(client) => {
@@ -135,7 +140,7 @@ pub fn run(session_id: Option<&str>, project_root: impl Into<PathBuf>) -> io::Re
                     client.model_id(),
                 )));
                 app.set_runtime_status(crate::app::RuntimeStatus::idle());
-                Some(Arc::new(client))
+                ai = Some(Arc::new(client));
             }
             Err(error) => {
                 app.push_error_message(error.to_string());
@@ -144,10 +149,20 @@ pub fn run(session_id: Option<&str>, project_root: impl Into<PathBuf>) -> io::Re
                     effective_config.model.model.clone(),
                 )));
                 app.set_runtime_status(crate::app::RuntimeStatus::idle());
-                None
+                if matches!(
+                    &error,
+                    crate::ai::AiError::Config(crate::config::ConfigError::MissingEnv(_))
+                ) {
+                    app.enter_config_editor(
+                        effective_config.model_options(),
+                        &effective_config.model.provider,
+                        &effective_config.model.model,
+                        Some(ConfigField::Auth),
+                    );
+                }
             }
         }
-    });
+    }
     if let Some(profile) = &app.ai_profile {
         let _ = store.append_session_meta(
             &session,
@@ -170,7 +185,7 @@ pub fn run(session_id: Option<&str>, project_root: impl Into<PathBuf>) -> io::Re
         &mut terminal,
         &mut app,
         &mut ai,
-        config.as_ref(),
+        &mut config,
         &store,
         &session,
         &project_root,
@@ -315,7 +330,7 @@ fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     app: &mut AppState,
     ai: &mut Option<Arc<AiClient>>,
-    config: Option<&PicocodeConfig>,
+    config: &mut Option<PicocodeConfig>,
     store: &SessionStore,
     session: &Session,
     project_root: &Path,
@@ -352,6 +367,18 @@ fn run_app(
                                 config,
                             )?;
                         }
+                    } else if app.is_config_editor_active() {
+                        if let Some(action) = app.handle_config_key(key) {
+                            handle_config_action(
+                                action,
+                                app,
+                                ai,
+                                store,
+                                session,
+                                project_root,
+                                config,
+                            )?;
+                        }
                     } else if app.is_session_tree_active() {
                         if let Some(action) = app.handle_tree_key(key) {
                             handle_tree_action(action, app, store, session, project_root)?;
@@ -367,9 +394,22 @@ fn run_app(
                 Event::Paste(text) => {
                     if !app.is_session_picker_active()
                         && !app.is_model_picker_active()
+                        && !app.is_config_editor_active()
                         && !app.is_session_tree_active()
                     {
                         app.push_paste_text(text);
+                    } else if app.is_config_editor_active() {
+                        if let Some(action) = app.handle_config_paste(text) {
+                            handle_config_action(
+                                action,
+                                app,
+                                ai,
+                                store,
+                                session,
+                                project_root,
+                                config,
+                            )?;
+                        }
                     }
                 }
                 _ => {}
@@ -397,6 +437,18 @@ fn run_app(
                                 config,
                             )?;
                         }
+                    } else if app.is_config_editor_active() {
+                        if let Some(action) = app.handle_config_key(key) {
+                            handle_config_action(
+                                action,
+                                app,
+                                ai,
+                                store,
+                                session,
+                                project_root,
+                                config,
+                            )?;
+                        }
                     } else if app.is_session_tree_active() {
                         if let Some(action) = app.handle_tree_key(key) {
                             handle_tree_action(action, app, store, session, project_root)?;
@@ -412,9 +464,22 @@ fn run_app(
                 Event::Paste(text) => {
                     if !app.is_session_picker_active()
                         && !app.is_model_picker_active()
+                        && !app.is_config_editor_active()
                         && !app.is_session_tree_active()
                     {
                         app.push_paste_text(text);
+                    } else if app.is_config_editor_active() {
+                        if let Some(action) = app.handle_config_paste(text) {
+                            handle_config_action(
+                                action,
+                                app,
+                                ai,
+                                store,
+                                session,
+                                project_root,
+                                config,
+                            )?;
+                        }
                     }
                 }
                 _ => {}
@@ -424,7 +489,7 @@ fn run_app(
         process_pending_submissions(
             app,
             ai.as_ref(),
-            config,
+            config.as_ref(),
             store,
             session,
             project_root,
@@ -787,6 +852,23 @@ fn handle_local_command(
             }
             None => app.push_error_message("AI config is not available."),
         },
+        LocalCommand::Config => match config {
+            Some(config) => {
+                let options = config.model_options();
+                let current_provider = app
+                    .ai_profile
+                    .as_ref()
+                    .map(|profile| profile.provider.clone())
+                    .unwrap_or_else(|| config.model.provider.clone());
+                let current_model = app
+                    .ai_profile
+                    .as_ref()
+                    .map(|profile| profile.model.clone())
+                    .unwrap_or_else(|| config.model.model.clone());
+                app.enter_config_editor(options, &current_provider, &current_model, None);
+            }
+            None => app.push_error_message("AI config is not available."),
+        },
         LocalCommand::Continue => match store.list_session_summaries() {
             Ok(summaries) => {
                 if let Some(summary) = summaries.first() {
@@ -890,16 +972,17 @@ fn handle_model_action(
     store: &SessionStore,
     session: &Session,
     project_root: &Path,
-    config: Option<&PicocodeConfig>,
+    config: &mut Option<PicocodeConfig>,
 ) -> io::Result<()> {
     match action {
         ModelPickerAction::Continue | ModelPickerAction::Cancelled => Ok(()),
         ModelPickerAction::Selected(selection) => {
-            let Some(config) = config else {
+            let Some(current_config) = config.as_ref() else {
                 app.push_error_message("AI config is not available.");
                 return Ok(());
             };
-            let updated_config = config.with_model_selection(&selection.provider, &selection.model);
+            let updated_config =
+                current_config.with_model_selection(&selection.provider, &selection.model);
             let client = match AiClient::from_config(&updated_config) {
                 Ok(client) => client,
                 Err(error) => {
@@ -915,9 +998,72 @@ fn handle_model_action(
                 app.runtime_status = crate::app::RuntimeStatus::with_detail("model", "save");
                 return Ok(());
             }
+            *config = Some(updated_config.clone());
 
             let provider = selection.provider.clone();
             let model = selection.model.clone();
+            *ai = Some(Arc::new(client));
+            app.set_ai_profile(Some(AiProfile::new(provider.clone(), model.clone())));
+            let _ = store.append_session_meta(
+                session,
+                SessionMeta {
+                    session_id: session.id.clone(),
+                    parent_session_id: store
+                        .summarize_session(session)
+                        .ok()
+                        .and_then(|summary| summary.parent_session_id),
+                    cwd: project_root.display().to_string(),
+                    app_version: env!("CARGO_PKG_VERSION").to_owned(),
+                    ai_provider: Some(provider.clone()),
+                    ai_model: Some(model.clone()),
+                },
+            );
+            app.push_system_message(format!(
+                "AI provider {} enabled with model {}",
+                provider, model
+            ));
+            app.runtime_status = crate::app::RuntimeStatus::idle();
+            app.mode = AppMode::Chat;
+            Ok(())
+        }
+    }
+}
+
+fn handle_config_action(
+    action: ConfigEditorAction,
+    app: &mut AppState,
+    ai: &mut Option<Arc<AiClient>>,
+    store: &SessionStore,
+    session: &Session,
+    project_root: &Path,
+    config: &mut Option<PicocodeConfig>,
+) -> io::Result<()> {
+    match action {
+        ConfigEditorAction::Continue | ConfigEditorAction::Cancelled => Ok(()),
+        ConfigEditorAction::Saved(saved_config) => {
+            if let Err(error) = saved_config.save() {
+                app.push_error_message(error.to_string());
+                app.runtime_status = crate::app::RuntimeStatus::with_detail("config", "save");
+                return Ok(());
+            }
+            *config = Some(saved_config.clone());
+
+            let client = match AiClient::from_config(&saved_config) {
+                Ok(client) => client,
+                Err(error) => {
+                    app.push_error_message(error.to_string());
+                    app.enter_config_editor(
+                        saved_config.model_options(),
+                        &saved_config.model.provider,
+                        &saved_config.model.model,
+                        Some(ConfigField::Auth),
+                    );
+                    return Ok(());
+                }
+            };
+
+            let provider = saved_config.model.provider.clone();
+            let model = client.model_id().to_string();
             *ai = Some(Arc::new(client));
             app.set_ai_profile(Some(AiProfile::new(provider.clone(), model.clone())));
             let _ = store.append_session_meta(

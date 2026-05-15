@@ -35,6 +35,7 @@ pub enum LocalCommand {
     New,
     Resume,
     Continue,
+    Config,
     Image { path: String },
     ImageClipboard,
     Compact,

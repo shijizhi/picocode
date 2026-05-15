@@ -10,6 +10,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{
     app::AppState,
+    config_editor::{ConfigEditorState, ConfigField},
     event::{
         CommandOutputEvent, CommandRunEvent, EventMsg, ImageAttachmentEvent, ToolCallEvent,
         ToolResultEvent,
@@ -48,6 +49,12 @@ mod dracula {
 }
 
 pub fn render(frame: &mut Frame<'_>, app: &AppState) {
+    if app.is_config_editor_active() {
+        if let crate::app::AppMode::ConfigEditor(state) = &app.mode {
+            render_config_editor(frame, state);
+        }
+        return;
+    }
     if app.is_model_picker_active() {
         if let crate::app::AppMode::ModelPicker(state) = &app.mode {
             render_model_picker(frame, state);
@@ -252,6 +259,122 @@ pub fn render_model_picker(frame: &mut Frame<'_>, state: &ModelPickerState) {
     render_model_picker_header(frame, chunks[0], state);
     render_model_picker_list(frame, chunks[1], state);
     render_model_picker_footer(frame, chunks[2], state);
+}
+
+pub fn render_config_editor(frame: &mut Frame<'_>, state: &ConfigEditorState) {
+    let area = frame.area();
+    frame.render_widget(Block::default().style(base_style()), area);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(4),
+            Constraint::Min(1),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
+    render_config_editor_header(frame, chunks[0], state);
+    render_config_editor_fields(frame, chunks[1], state);
+    render_config_editor_footer(frame, chunks[2], state);
+}
+
+fn render_config_editor_header(frame: &mut Frame<'_>, area: Rect, state: &ConfigEditorState) {
+    let mut lines = vec![
+        Line::from(vec![Span::styled(
+            "config editor",
+            Style::default()
+                .fg(dracula::PURPLE)
+                .add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(vec![Span::styled(
+            state.summary_label(),
+            Style::default().fg(dracula::COMMENT),
+        )]),
+        Line::from(vec![Span::styled(
+            "Left/Right model  ·  Up/Down field  ·  Enter edit/toggle",
+            Style::default().fg(dracula::ORANGE),
+        )]),
+    ];
+    if let Some(prompt) = state.prompt_label() {
+        lines.push(Line::from(vec![Span::styled(
+            prompt,
+            Style::default().fg(dracula::CYAN),
+        )]));
+    } else {
+        lines.push(Line::from(vec![Span::styled(
+            "Ctrl+N new model  ·  Ctrl+D delete  ·  Ctrl+S save  ·  Esc cancel",
+            Style::default().fg(dracula::COMMENT),
+        )]));
+    }
+
+    let header = Paragraph::new(lines)
+        .style(base_style())
+        .wrap(Wrap { trim: false });
+    frame.render_widget(header, area);
+}
+
+fn render_config_editor_fields(frame: &mut Frame<'_>, area: Rect, state: &ConfigEditorState) {
+    let Some(option) = state.current_option() else {
+        let empty = Paragraph::new(Line::from(vec![Span::styled(
+            "no model configured",
+            Style::default().fg(dracula::RED),
+        )]))
+        .style(base_style());
+        frame.render_widget(empty, area);
+        return;
+    };
+
+    let mut lines = Vec::new();
+    for field in ConfigField::all() {
+        let selected = field == state.selected_field;
+        let style = if selected {
+            Style::default()
+                .fg(dracula::BACKGROUND)
+                .bg(dracula::GREEN)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(dracula::ANSWER)
+        };
+        let value = field.display_value(option);
+        let label_style = if selected {
+            Style::default().fg(dracula::BACKGROUND).bg(dracula::GREEN)
+        } else {
+            Style::default().fg(dracula::COMMENT)
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("{}: ", field.label()),
+                label_style.add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(value, style),
+        ]));
+    }
+
+    let body = Paragraph::new(lines)
+        .style(base_style())
+        .wrap(Wrap { trim: false });
+    frame.render_widget(body, area);
+}
+
+fn render_config_editor_footer(frame: &mut Frame<'_>, area: Rect, state: &ConfigEditorState) {
+    let footer = if state.prompt_label().is_some() {
+        Paragraph::new(Line::from(vec![
+            Span::styled("Enter ", Style::default().fg(dracula::GREEN)),
+            Span::styled("save", Style::default().fg(dracula::COMMENT)),
+            Span::raw("  "),
+            Span::styled("Esc ", Style::default().fg(dracula::RED)),
+            Span::styled("cancel", Style::default().fg(dracula::COMMENT)),
+        ]))
+    } else {
+        Paragraph::new(Line::from(vec![
+            Span::styled("Enter ", Style::default().fg(dracula::GREEN)),
+            Span::styled("edit", Style::default().fg(dracula::COMMENT)),
+            Span::raw("  "),
+            Span::styled("Space ", Style::default().fg(dracula::GREEN)),
+            Span::styled("toggle", Style::default().fg(dracula::COMMENT)),
+        ]))
+    };
+    frame.render_widget(footer.style(base_style().bg(dracula::CURRENT_LINE)), area);
 }
 
 fn render_session_picker_header(frame: &mut Frame<'_>, area: Rect, state: &SessionPickerState) {

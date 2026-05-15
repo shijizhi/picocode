@@ -3,6 +3,7 @@ mod ai;
 mod app;
 mod capability;
 mod config;
+mod config_editor;
 mod event;
 mod image;
 mod instruction;

@@ -4,7 +4,7 @@
 
 It is inspired by Pi, Codex, Claude Code, and OpenCode, but keeps the implementation focused on a local-first Rust TUI.
 
-![PicoCode terminal preview](assets/readme-hero.svg)
+![PicoCode terminal preview](assets/readme-hero.png)
 
 ## Status
 
