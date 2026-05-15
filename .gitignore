@@ -1,0 +1,4 @@
+/target/
+.picocode/
+.idea/
+.DS_Store

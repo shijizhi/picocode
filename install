@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="${PICOCODE_REPO:-jizhishi/picocode}"
+version="${PICOCODE_VERSION:-latest}"
+install_dir="${PICOCODE_INSTALL_DIR:-}"
+asset_name=""
+tmp_dir="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "$tmp_dir"
+}
+trap cleanup EXIT
+
+detect_os() {
+  case "$(uname -s)" in
+    Darwin) echo "darwin" ;;
+    Linux) echo "linux" ;;
+    *)
+      echo "Unsupported operating system: $(uname -s)" >&2
+      exit 1
+      ;;
+  esac
+}
+
+detect_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "amd64" ;;
+    arm64|aarch64) echo "arm64" ;;
+    *)
+      echo "Unsupported architecture: $(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+}
+
+select_install_dir() {
+  if [[ -n "$install_dir" ]]; then
+    mkdir -p "$install_dir"
+    echo "$install_dir"
+    return
+  fi
+
+  if [[ -n "${XDG_BIN_DIR:-}" ]]; then
+    mkdir -p "$XDG_BIN_DIR"
+    echo "$XDG_BIN_DIR"
+    return
+  fi
+
+  local home_dir="${HOME:-}"
+  if [[ -n "$home_dir" ]]; then
+    mkdir -p "$home_dir/bin" 2>/dev/null || true
+    if [[ -d "$home_dir/bin" ]]; then
+      echo "$home_dir/bin"
+      return
+    fi
+    mkdir -p "$home_dir/.picocode/bin"
+    echo "$home_dir/.picocode/bin"
+    return
+  fi
+
+  echo "Unable to determine installation directory." >&2
+  exit 1
+}
+
+fetch_latest_release_tag() {
+  if [[ "$version" != "latest" ]]; then
+    echo "$version"
+    return
+  fi
+
+  curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" \
+    | grep -m1 '"tag_name"' \
+    | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/'
+}
+
+fetch_asset_url() {
+  local release_tag="$1"
+  local os="$2"
+  local arch="$3"
+  local expected="picocode-${os}-${arch}.tar.gz"
+  local release_json
+
+  release_json="$(curl -fsSL "https://api.github.com/repos/${repo}/releases/tags/${release_tag}")"
+  asset_name="$expected"
+
+  printf '%s\n' "$release_json" \
+    | grep -oE '"browser_download_url":[[:space:]]*"[^"]+"' \
+    | grep -F "$expected" \
+    | head -n1 \
+    | sed -E 's/"browser_download_url":[[:space:]]*"([^"]+)"/\1/'
+}
+
+main() {
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "curl is required to install picocode." >&2
+    exit 1
+  fi
+  if ! command -v tar >/dev/null 2>&1; then
+    echo "tar is required to install picocode." >&2
+    exit 1
+  fi
+
+  local os arch release_tag asset_url target_dir archive_path binary_path
+  os="$(detect_os)"
+  arch="$(detect_arch)"
+  release_tag="$(fetch_latest_release_tag)"
+  target_dir="$(select_install_dir)"
+  archive_path="${tmp_dir}/picocode.tar.gz"
+  binary_path="${tmp_dir}/picocode"
+  asset_url="$(fetch_asset_url "$release_tag" "$os" "$arch")"
+
+  if [[ -z "$asset_url" ]]; then
+    echo "Could not find a release asset for ${os}/${arch} (${asset_name:-picocode-${os}-${arch}.tar.gz})." >&2
+    echo "Repo: ${repo}" >&2
+    echo "Release: ${release_tag}" >&2
+    exit 1
+  fi
+
+  echo "Installing picocode ${release_tag} from ${repo}"
+  echo "Downloading ${asset_name}..."
+  curl -fsSL "$asset_url" -o "$archive_path"
+  tar -xzf "$archive_path" -C "$tmp_dir"
+
+  if [[ ! -f "$binary_path" ]]; then
+    binary_path="$(find "$tmp_dir" -maxdepth 2 -type f -name picocode | head -n1)"
+  fi
+
+  if [[ -z "${binary_path:-}" || ! -f "$binary_path" ]]; then
+    echo "Downloaded archive did not contain a picocode binary." >&2
+    exit 1
+  fi
+
+  chmod +x "$binary_path"
+  install -m 755 "$binary_path" "${target_dir}/picocode"
+
+  echo "Installed to ${target_dir}/picocode"
+  echo "Add ${target_dir} to your PATH if it is not already there."
+}
+
+main "$@"

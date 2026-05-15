@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1536" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#171B26"/>
+      <stop offset="1" stop-color="#1F2430"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#2A3142"/>
+      <stop offset="1" stop-color="#222936"/>
+    </linearGradient>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+      .title { fill: #F4F7FB; font-size: 42px; font-weight: 700; letter-spacing: -0.02em; }
+      .label { fill: #6E82B3; font-size: 30px; }
+      .value { fill: #F4F7FB; font-size: 30px; }
+      .accent { fill: #63D8E9; font-size: 30px; }
+      .green { fill: #4EF0A4; font-size: 30px; font-weight: 700; }
+      .yellow { fill: #F4E57D; font-size: 30px; font-weight: 700; }
+      .tip { fill: #D0D6E4; font-size: 29px; }
+      .tipStrong { fill: #FFB46B; font-size: 29px; font-weight: 700; }
+      .footerDim { fill: #7A87A8; font-size: 24px; }
+      .footerMain { fill: #F4F7FB; font-size: 24px; }
+      .footerAccent { fill: #B18CFF; font-size: 24px; font-weight: 700; }
+    </style>
+  </defs>
+  <rect width="1536" height="1024" fill="url(#bg)"/>
+
+  <rect x="20" y="20" width="1496" height="254" rx="10" stroke="#4A5270" stroke-width="3" fill="url(#panel)"/>
+  <text x="48" y="92" class="mono title">&gt;_ PicoCode</text>
+  <text x="38" y="149" class="mono label">model:</text>
+  <text x="194" y="149" class="mono value">doubao/doubao-1.5-vision-pro-32k</text>
+  <text x="712" y="149" class="mono accent">/model</text>
+  <text x="843" y="149" class="mono tip">to change</text>
+  <text x="38" y="198" class="mono label">directory:</text>
+  <text x="259" y="198" class="mono value">/Users/jizhishi/mycode/ai-test/picocode-test-1</text>
+  <text x="38" y="247" class="mono label">status:</text>
+  <text x="192" y="247" class="mono green">idle</text>
+  <text x="302" y="247" class="mono yellow">0s</text>
+
+  <text x="20" y="340" class="mono tipStrong">Tip:</text>
+  <text x="122" y="340" class="mono tip">Use /new for a blank session, Ctrl+V to paste text.</text>
+  <text x="122" y="383" class="mono tip">/image &lt;path|clip&gt; to attach a screenshot, /skill &lt;query&gt; to load a skill, /capabilities to browse</text>
+
+  <rect x="20" y="822" width="1496" height="122" rx="10" stroke="#59627F" stroke-width="2" fill="#3C4256"/>
+  <text x="36" y="877" class="mono accent" font-size="34px">&gt;</text>
+  <rect x="69" y="848" width="16" height="48" fill="#F4F7FB"/>
+
+  <text x="20" y="989" class="mono footerAccent">PicoCode</text>
+  <text x="142" y="989" class="mono footerDim">·</text>
+  <text x="180" y="989" class="mono footerDim">status</text>
+  <text x="295" y="989" class="mono green">idle</text>
+  <text x="372" y="989" class="mono yellow">0s</text>
+  <text x="470" y="989" class="mono footerDim">exit</text>
+  <text x="546" y="989" class="mono footerMain">Esc/Ctrl+C</text>
+</svg>
