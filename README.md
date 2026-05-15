@@ -48,7 +48,7 @@ It has only been tested on macOS so far.
 The intended public install entrypoint is a GitHub-hosted install script like this:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shijizhi/picocode/refs/heads/main/install | bash
+curl -fsSL https://raw.githubusercontent.com/shijizhi/picocode/main/install | bash
 ```
 
 ### From GitHub Releases

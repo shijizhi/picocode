@@ -29,8 +29,8 @@
   <text x="48" y="92" class="mono title">&gt;_ PicoCode</text>
   <text x="38" y="149" class="mono label">model:</text>
   <text x="194" y="149" class="mono value">doubao/doubao-1.5-vision-pro-32k</text>
-  <text x="712" y="149" class="mono accent">/model</text>
-  <text x="843" y="149" class="mono tip">to change</text>
+  <text x="1180" y="149" class="mono accent" text-anchor="end">/model</text>
+  <text x="1200" y="149" class="mono tip">to change</text>
   <text x="38" y="198" class="mono label">directory:</text>
   <text x="259" y="198" class="mono value">/Users/jizhishi/mycode/ai-test/picocode-test-1</text>
   <text x="38" y="247" class="mono label">status:</text>
