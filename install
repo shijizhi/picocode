@@ -63,6 +63,42 @@ select_install_dir() {
   exit 1
 }
 
+shell_rc_files() {
+  case "$(basename "${SHELL:-}")" in
+    zsh)
+      printf '%s\n' "${HOME}/.zprofile" "${HOME}/.zshrc"
+      ;;
+    bash)
+      printf '%s\n' "${HOME}/.bash_profile" "${HOME}/.bashrc"
+      ;;
+    *)
+      printf '%s\n' "${HOME}/.profile"
+      ;;
+  esac
+}
+
+ensure_path_in_shell_configs() {
+  local install_dir="$1"
+  local line="export PATH=\"${install_dir}:\$PATH\""
+  local updated=0
+
+  while IFS= read -r rc_file; do
+    [[ -n "$rc_file" ]] || continue
+    touch "$rc_file"
+    if ! grep -Fqx "$line" "$rc_file"; then
+      {
+        printf '\n# Added by PicoCode installer\n'
+        printf '%s\n' "$line"
+      } >> "$rc_file"
+      updated=1
+    fi
+  done < <(shell_rc_files)
+
+  if [[ "$updated" -eq 1 ]]; then
+    echo "Updated your shell PATH configuration."
+  fi
+}
+
 fetch_latest_release_tag() {
   if [[ "$version" != "latest" ]]; then
     echo "$version"
@@ -133,9 +169,10 @@ main() {
 
   chmod +x "$binary_path"
   install -m 755 "$binary_path" "${target_dir}/picocode"
+  ensure_path_in_shell_configs "$target_dir"
 
   echo "Installed to ${target_dir}/picocode"
-  echo "Add ${target_dir} to your PATH if it is not already there."
+  echo "Restart your shell or source your shell config to use picocode immediately."
 }
 
 main "$@"

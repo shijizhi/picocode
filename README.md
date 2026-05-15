@@ -53,7 +53,7 @@ curl -fsSL https://raw.githubusercontent.com/shijizhi/picocode/main/install | ba
 
 ### From GitHub Releases
 
-Download the archive for your platform from the Releases page, unpack it, and place the `picocode` binary on your `PATH`.
+Download the archive for your platform from the Releases page, unpack it, and let the installer place `picocode` on your `PATH`.
 
 ### Optional: package managers
 
